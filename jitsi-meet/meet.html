@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Jitsi Meet with Timer</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+  <h1>Jitsi Meet with Timer</h1>
+  <div id="timer"></div>
+  <div id="jitsi-container"></div>
+
+  <script src="https://meet.jit.si/external_api.js"></script>
+  <script>
+    const api = new JitsiMeetExternalAPI('meet.jit.si', {
+      roomName: 'somethingspecialgroup',
+      parentNode: document.getElementById('jitsi-container'),
+      width: '800px',
+      height: '600px',
+      onload: function() {
+        let callStarted = false; // Flag to track if the call has started
+        let callDuration = 0; // Initialize call duration in seconds
+        let countdownTimer; // Timer variable
+
+        api.addEventListener('videoConferenceJoined', function(event) {
+          callStarted = true; // Set the flag to indicate that the call has started
+        });
+
+        api.addEventListener('readyToClose', function(event) {
+          if (callStarted) {
+            const duration = event.duration; // Duration in seconds
+            callDuration += duration; // Add the duration of the current call
+
+            // Send the duration to PHP using AJAX
+            $.ajax({
+              type: 'POST',
+              url: 'store_duration.php',
+              data: { duration: callDuration },
+              success: function(response) {
+                // Handle the response if needed
+              }
+            });
+          }
+        });
+
+        // Start the countdown timer
+        function startTimer(duration) {
+          let timer = duration;
+          countdownTimer = setInterval(function() {
+            const minutes = Math.floor(timer / 60);
+            const seconds = timer % 60;
+
+            // Display the timer
+            document.getElementById('timer').textContent = `${minutes}:${seconds
+              .toString()
+              .padStart(2, '0')}`;
+
+            // Check if the maximum call duration has been reached
+            if (timer <= 0) {
+              // End the call or display a message
+              clearInterval(countdownTimer);
+              api.executeCommand('hangup'); // Automatically end the call
+            }
+
+            timer--;
+          }, 1000);
+        }
+
+        // Start the timer when the call starts
+        api.addEventListener('videoConferenceJoined', function(event) {
+          startTimer(180); // 3 minutes = 180 seconds
+        });
+      }
+    });
+  </script>
+</body>
+</html>
